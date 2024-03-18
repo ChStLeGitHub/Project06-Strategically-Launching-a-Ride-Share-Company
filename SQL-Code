@@ -1,1 +1,134 @@
-Did this work?
+# I used the following SQL code to parse weather data in Chicago in November 2017, and to begin doing exploratory data analysis.
+
+from bs4 import BeautifulSoup
+import pandas as pd
+import requests
+
+url = 'https://practicum-content.s3.us-west-1.amazonaws.com/data-analyst-eng/moved_chicago_weather_2017.html'
+req = requests.get(url)
+soup = BeautifulSoup(req.text, 'lxml')
+table = soup.find('table', attrs = {"id": "weather_records"})
+
+heading_table = []
+for row in table.find_all('th'):
+    heading_table.append(row.text)   
+
+content = []
+for row in table.find_all('tr'):
+    if not row.find_all('th'):
+        content.append([element.text for element in row.find_all('td')])
+
+weather_records = pd.DataFrame(content, columns = heading_table)
+
+print(weather_records)
+
+# Find the number of taxi rides for each taxi company for November 15-16, 2017, name the resulting field trips_amount, and sort it in descending order.
+
+SELECT
+    cabs.company_name,
+    COUNT(trips.trip_id) AS trips_amount 
+FROM
+    cabs INNER JOIN trips 
+    ON cabs.cab_id = trips.cab_id
+WHERE
+    CAST(trips.start_ts AS date) BETWEEN '2017-11-15' AND '2017-11-16'
+GROUP BY 
+    company_name
+ORDER BY
+    trips_amount DESC;
+
+# Find the number of rides for every taxi company whose name contains the words "Yellow" or "Blue" for November 1-7, 2017. 
+# Name the resulting variable trips_amount, and group the results by the company_name field.
+
+SELECT
+    cabs.company_name,
+    COUNT(trips.trip_id) AS trips_amount 
+FROM
+    cabs INNER JOIN trips 
+    ON cabs.cab_id = trips.cab_id
+WHERE
+    CAST(trips.start_ts AS date) BETWEEN '2017-11-01' AND '2017-11-07'
+    AND
+    (cabs.company_name LIKE '%Yellow%' OR cabs.company_name LIKE '%Blue%')
+GROUP BY 
+    company_name;
+
+# For November 1-7, 2017, the most popular taxi companies were Flash Cab and Taxi Affiliation Services. 
+# Find the number of rides for these two companies and name the resulting variable trips_amount. 
+# Join the rides for all other companies in the group "Other." Group the data by taxi company names. 
+# Name the field with taxi company names company. Sort the result in descending order by trips_amount.
+
+SELECT 
+    COUNT(trips.trip_id) AS trips_amount,
+    CASE
+        WHEN cabs.company_name IN ('Flash Cab', 'Taxi Affiliation Services') 
+    THEN cabs.company_name
+        ELSE 'Other'
+    END AS company    
+FROM 
+    cabs INNER JOIN trips 
+    ON cabs.cab_id = trips.cab_id
+WHERE 
+    CAST(trips.start_ts AS date) BETWEEN '2017-11-01' AND '2017-11-07'
+GROUP BY 
+    CASE
+        WHEN company_name IN ('Flash Cab', 'Taxi Affiliation Services') 
+    THEN company_name
+        ELSE 'Other'
+    END
+ORDER BY 
+    trips_amount DESC;
+
+# Retrieve the identifiers of the O'Hare and Loop neighborhoods from the neighborhoods table.
+
+SELECT
+    name,
+    neighborhood_id
+FROM
+    neighborhoods
+WHERE
+    name = 'O''Hare' OR name = 'Loop'
+
+# For each hour, retrieve the weather condition records from the weather_records table. 
+# Using the CASE operator, break all hours into two groups: 
+# "Bad" if the description field contains the words "rain" or "storm", and "Good" for others. 
+# Name the resulting field weather_conditions.
+
+SELECT 
+    ts AS "date and hour",
+    CASE
+        WHEN description LIKE '%rain%' 
+            OR description LIKE '%storm%' THEN 'Bad'
+        ELSE 'Good'
+    END AS weather_conditions
+FROM 
+    weather_records
+ORDER BY 
+    ts;
+
+# Retrieve all the rides that started in the Loop (pickup_location_id: 50) on a Saturday and ended at O'Hare (dropoff_location_id: 63) from the trips table. 
+# Get the weather conditions and duration for each ride (ignore rides for which data on weather conditions is not available). Sort by trip_id.
+
+SELECT
+    start_ts,
+    T.weather_conditions,
+    duration_seconds
+FROM 
+    trips
+INNER JOIN (
+    SELECT
+        ts,
+        CASE
+            WHEN description LIKE '%rain%' 
+                OR description LIKE '%storm%' THEN 'Bad'
+            ELSE 'Good'
+        END AS weather_conditions
+    FROM 
+        weather_records) 
+        T on T.ts = trips.start_ts
+WHERE 
+    pickup_location_id = 50 
+    AND dropoff_location_id = 63 
+    AND EXTRACT (DOW from trips.start_ts) = 6
+ORDER BY 
+    trip_id
