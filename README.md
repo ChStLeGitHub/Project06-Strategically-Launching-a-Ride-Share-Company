@@ -1,4 +1,4 @@
-# Project 06: Strategically Launching a Ride Share Company
+# Strategically Launching a Ride Share Company
  
 **Objective:** To analyze Chicago's taxi and ride-sharing market by identifying the top neighborhoods for dropoffs, assessing the rankings of Chicago-based taxi companies based on ride frequency, and investigating the impact of weather conditions on ride duration to support Zuber, a new ride-sharing company, in making strategic decisions for their launch in the city.
 
